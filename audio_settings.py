@@ -1,3 +1,4 @@
+from constant import DEFAULT_EQ_BANDS
 from shared_locks import get_lock
 
 
@@ -7,13 +8,7 @@ class AudioSettings:
     def __init__(self):
         self._lock = get_lock("audio")  # Get the file lock
 
-        self._eq_bands = {
-            1: (60, 5, 1.0),  # Band 1: (frequency, gain, Q-factor)
-            2: (250, 3, 1.0),  # Band 2: (frequency, gain, Q-factor)
-            3: (1000, 0, 1.0),  # Band 3: (frequency, gain, Q-factor)
-            4: (4000, -2, 1.0),  # Band 4: (frequency, gain, Q-factor)
-            5: (8000, -1, 1.0)  # Band 5: (frequency, gain, Q-factor)
-        }
+        self._eq_bands = DEFAULT_EQ_BANDS
 
     # Equalization Accessors
     @property

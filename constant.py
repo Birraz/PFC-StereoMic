@@ -2,11 +2,14 @@
 DEFAULT_BIT_DEPTH = 24
 MAX_FREQ = DEFAULT_SAMPLING_FREQ = 192000
 MIN_FREQ = 5000
+DEFAULT_CHUNK_SIZE = 1024
+DEFAULT_CHANNELS = 2
+
 
 DEFAULT_EQ_BANDS = {
-    1: (60, 5, 1.0),
-    2: (250, 3, 1.0),
+    1: (60, 0, 1.0),
+    2: (250, 0, 1.0),
     3: (1000, 0, 1.0),
-    4: (4000, -2, 1.0),
-    5: (8000, -1, 1.0),
+    4: (4000, 0, 1.0),
+    5: (8000, 0, 1.0),
 }
