@@ -7,40 +7,39 @@ import time
 
 if __name__ == "__main__":
     rec_set = recording_settings.RecordingSettings()
-    audio_streamer = sound_processing.AudioStreamer(rec_set)
 
-    input_file = "C:\\Users\\dadoa\\Desktop\\ISEL\\Final Project\\Musica\\whiteNoise1.flac"
+    input_file = "musica1.wav"
+
     bit_depth_in, channels_in, sample_in = sound_processing.get_audio_properties(input_file)
     print("Input File Params", bit_depth_in, channels_in, sample_in)
 
-    input_data_float32, samplerate = sf.read(input_file, dtype='float32')
-    rec_set.in_data_bytes = input_data_float32.tobytes()
+    input_data, samplerate = sf.read(input_file, dtype='int16', always_2d=True)
+    if samplerate != sample_in:
+        print("Warning: Input file sample rate does not match the expected sample rate given by"
+              "@get_audio_properties.")
+        exit(-1)
+    print("Read File Params", input_data.shape[1], samplerate)
+    rec_set.in_data_bytes = input_data.tobytes()
 
+    #Update sampling frequency and number of channels in rec_set
     rec_set.sampling_freq = samplerate
     rec_set.channels = channels_in
 
-    try:
-        print("Starting stream...")
-        audio_streamer.start_stream()
+    #Creat a Streaming Class that receives our recording settings Class as Parameter
+    audio_streamer = sound_processing.AudioStreamer(rec_set)
 
-        print("Recording and live playback in progress... Press Ctrl+C to stop.")
-        audio_streamer.streaming()
+    print("Starting stream...")
+    audio_streamer.start_stream()
 
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt detected. Stopping stream...")
+    print("Recording and live playback in progress... (@main)")
+    audio_streamer.streaming()
 
-    except Exception as general_e:
-        print(f"An unexpected exception occurred: {general_e}")
+    # Retrieve processed audio after stopping the stream
+    recorded_audio = rec_set.get_concatenated_audio()
+    #Convert recorded audio to np array
+    recorded_raw = recorded_audio.tobytes()
 
-    finally:
-        # Retrieve processed audio after stopping the stream
-        recorded_audio = rec_set.get_concatenated_audio()
+    #Write the queue to a file
+    sf.write("output.flac", recorded_audio, rec_set.sampling_freq, format='FLAC')
 
-        # Safe conversion and scaling before saving to file
-        if recorded_audio.dtype in (np.float32, np.float64):
-            recorded_audio = np.clip(recorded_audio, -1.0, 1.0)
-            recorded_audio = (recorded_audio * np.iinfo(np.int16).max).astype(np.int16)
-
-        sf.write("C:\\Users\\dadoa\\Desktop\\ISEL\\Final Project\\Musica\\output.flac", recorded_audio, rec_set.sampling_freq, format='FLAC')
-
-        print("Audio recording saved successfully.")
+    print("Audio recording saved successfully.")

@@ -4,7 +4,6 @@ from shared_locks import get_lock
 
 class AudioSettings:
 
-
     def __init__(self):
         self._lock = get_lock("audio")  # Get the file lock
 
