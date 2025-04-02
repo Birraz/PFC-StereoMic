@@ -1,164 +1,46 @@
-import wave
-import pyaudio
-import sys
-import time
-import numpy as np
-import bluetooth
+import asyncio
+from bleak import BleakClient
 
-def start_bluetooth_server():
+# UUIDs for the BLE service and characteristic
+SERVICE_UUID = "00001101-0000-1000-8000-00805F9B34FB" 
+CHARACTERISTIC_UUID = "00002101-0000-1000-8000-00805F9B34FB"  
+
+async def main(address):
     """
-    Starts a Bluetooth server to listen for incoming connections.
-    """
-    server_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-    server_sock.bind(("", bluetooth.PORT_ANY))
-    server_sock.listen(1)
-
-    port = server_sock.getsockname()[1]
-    uuid = "00001101-0000-1000-8000-00805F9B34FB"  # Standard SerialPortService ID
-
-    bluetooth.advertise_service(server_sock, "PythonBluetoothServer", service_id=uuid)
-
-    print("Waiting for connection on RFCOMM channel", port)
-
-    client_sock, client_info = server_sock.accept()
-    print("Accepted connection from", client_info)
-
-    try:
-        while True:
-            data = client_sock.recv(1024)
-            if not data:
-                break
-            print("Received:", data.decode())
-            client_sock.send("Message received!")
-    except IOError:
-        pass
-
-    print("Disconnected.")
-
-    client_sock.close()
-    server_sock.close()
-
-# Start the Bluetooth server in a separate thread
-import threading
-bluetooth_thread = threading.Thread(target=start_bluetooth_server)
-bluetooth_thread.daemon = True
-bluetooth_thread.start()
-def open_audio_file(filename):
-    """
-    Opens a WAV audio file and retrieves its parameters.
-
+    Main function to connect to the BLE server (Flutter app) and process commands.
+    
     Args:
-        filename (str): The path to the WAV audio file.
-
-    Returns:
-        tuple: A tuple containing:
-            - wf: The opened wave file object.
-            - channels (int): Number of audio channels.
-            - sample_width (int): Sample width in bytes.
-            - rate (int): Sampling rate in Hz.
+        address (str): The MAC address or UUID of the BLE server (Flutter app).
     """
     try:
-        wf = wave.open(filename, 'rb')
-        channels = wf.getnchannels()
-        sample_width = wf.getsampwidth()
-        rate = wf.getframerate()
-        return wf, channels, sample_width, rate
-    except FileNotFoundError:
-        print(f"Error: File not found at {filename}")
-        sys.exit(-1)
-    except wave.Error:
-        print(f"Error: Unable to open the file at {filename}. Ensure it is a valid .wav file.")
-        sys.exit(-1)
+        async with BleakClient(address) as client:
+            print(f"Connected to BLE server at {address}")
 
-def get_numpy_dtype(sample_width):
-    """
-    Returns the appropriate NumPy data type based on sample width.
+            # Continuously read data from the characteristic
+            while True:
+                try:
+                    # Read the characteristic value
+                    data = await client.read_gatt_char(CHARACTERISTIC_UUID)
+                    command = data.decode()
+                    print(f"Received data: {command}")
 
-    Args:
-        sample_width (int): The width of each audio sample in bytes.
+                    # Send a response back to the server
+                    response = "Message received!".encode()
+                    await client.write_gatt_char(CHARACTERISTIC_UUID, response)
 
-    Returns:
-        numpy.dtype: The corresponding NumPy data type (e.g., np.int8, np.int16).
-    """
-    if sample_width == 1:
-        return np.int8
-    elif sample_width == 2:
-        return np.int16
-    else:
-        return np.int16  # Default to 16-bit if sample width is unknown
+                except Exception as e:
+                    print(f"Error during BLE communication: {e}")
+                    break
 
-def create_audio_stream(p, format, channels, rate, callback):
-    """
-    Creates and returns a PyAudio stream for audio playback.
+                # Wait before reading again
+                await asyncio.sleep(1)
 
-    Args:
-        p (pyaudio.PyAudio): The PyAudio instance.
-        format (int): The audio format.
-        channels (int): Number of audio channels.
-        rate (int): Sampling rate in Hz.
-        callback (function): The callback function for audio processing.
+    except Exception as e:
+        print(f"Failed to connect to BLE server: {e}")
 
-    Returns:
-        pyaudio.Stream: A PyAudio stream object.
-    """
-    return p.open(format=format,
-                  channels=channels,
-                  rate=rate,
-                  output=True,
-                  frames_per_buffer=1024,
-                  stream_callback=callback)
+if __name__ == "__main__":
+    # Replace this with the MAC address or UUID of your Flutter app's BLE server
+    BLE_SERVER_ADDRESS = "XX:XX:XX:XX:XX:XX" 
 
-def callback(in_data, frame_count, time_info, status):
-    """
-    Callback function for processing audio frames during playback.
-
-    Args:
-        in_data (bytes): Unused input data (required by PyAudio).
-        frame_count (int): Number of frames to read.
-        time_info (dict): Timing information (required by PyAudio).
-        status (int): Status flag (required by PyAudio).
-
-    Returns:
-        tuple: A tuple containing processed audio data and a flag indicating whether to continue playback.
-    """
-    data = wf.readframes(frame_count)
-    if len(data) == 0:
-        return (data, pyaudio.paComplete)
-    audio_data = np.frombuffer(data, dtype=np_dtype)
-    processed_data = audio_data  # No processing, just pass through
-    return (processed_data.tobytes(), pyaudio.paContinue)
-
-# Get the file path from command-line arguments or user input
-if len(sys.argv) < 2:
-    file_path = input("Enter the path to the .wav file: ")
-else:
-    file_path = sys.argv[1]
-
-# Open the audio file
-wf, channels, sample_width, RATE = open_audio_file(file_path)
-
-# Initialize PyAudio
-p = pyaudio.PyAudio()
-FORMAT = p.get_format_from_width(sample_width)
-np_dtype = get_numpy_dtype(sample_width)
-
-# Create and start the stream
-stream = create_audio_stream(p, FORMAT, channels, RATE, callback)
-stream.start_stream()
-
-print("Playing audio with callback...")
-print(f"Sample width: {sample_width} bytes per sample")
-print(f"Number of channels: {channels}")
-print(f"Sample rate: {RATE} Hz")
-
-# Keep the script running until the stream finishes
-while stream.is_active():
-    time.sleep(0.1)
-
-print("Playback finished.")
-
-# Clean up
-stream.stop_stream()
-stream.close()
-p.terminate()
-wf.close()
+    # Run the BLE client
+    asyncio.run(main(BLE_SERVER_ADDRESS))
