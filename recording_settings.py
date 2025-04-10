@@ -16,7 +16,7 @@ class RecordingSettings:
         self._file_name = "default_audio.flac"  # Default file name
         self._session_number = 0  # Default session number
         self._session_name = "Default_Session"  # Default session name
-        self._chunk = 1024
+        self._frame_size = 1024
         self._in_data_bytes = None
         self._audio_queue = queue.Queue()
 
@@ -30,6 +30,12 @@ class RecordingSettings:
         """Returns the size of the audio queue in a thread-safe manner."""
         with self._lock:
             return self._audio_queue.qsize()
+
+    @property
+    def audio_queue(self):
+        """Get frame_size size."""
+        with self._lock:
+            return self._audio_queue
 
     @property
     def is_audio_queue_empty(self):
@@ -58,18 +64,18 @@ class RecordingSettings:
             return np.concatenate(list(self._audio_queue.queue))  # Concatenate queue contents safely
 
     @property
-    def chunk(self):
-        """Get chunk size."""
+    def frame_size(self):
+        """Get frame_size size."""
         with self._lock:
-            return self._chunk
+            return self._frame_size
 
-    @chunk.setter
-    def chunk(self, value):
-        """Set chunk size."""
+    @frame_size.setter
+    def frame_size(self, value):
+        """Set frame_size size."""
         if not isinstance(value, int) or value <= 0:
             raise ValueError("Chunk size must be a positive integer.")
         with self._lock:
-            self._chunk = value
+            self._frame_size = value
 
     @property
     def in_data_bytes(self):
@@ -94,7 +100,7 @@ class RecordingSettings:
     @bit_depth.setter
     def bit_depth(self, value):
         """Set bit depth."""
-        if value not in (16, 24):
+        if value != (16 or 24):
             raise ValueError("bit_depth must be either 16 or 24.")
         with self._lock:
             self._bit_depth = value

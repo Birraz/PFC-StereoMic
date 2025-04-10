@@ -1,4 +1,5 @@
-from constant import DEFAULT_EQ_BANDS
+import constant
+from constant import DEFAULT_EQ_BANDS, DEFAULT_GLOBAL_GAIN
 from shared_locks import get_lock
 
 
@@ -6,8 +7,8 @@ class AudioSettings:
 
     def __init__(self):
         self._lock = get_lock("audio")  # Get the file lock
-
         self._eq_bands = DEFAULT_EQ_BANDS
+        self.global_gain = getattr(constant, "DEFAULT_GLOBAL_GAIN", 0.0)
 
     # Equalization Accessors
     @property
@@ -39,6 +40,16 @@ class AudioSettings:
         """Clear all EQ bands."""
         with self._lock:
             self._eq_bands.clear()
+
+    @property
+    def global_gain(self):
+        with self._lock:
+            return self._global_gain
+
+    @global_gain.setter
+    def global_gain(self, value):
+        with self._lock:
+            self._global_gain = value
 
 
 # Global instance of AudioSettings (Singleton)
